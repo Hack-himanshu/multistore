@@ -24,7 +24,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response ? .status === 401) {
+        if (error.response ?.status === 401) {
             // Token expired or invalid — clear auth state and redirect
             localStorage.removeItem('ms_token');
             localStorage.removeItem('ms_user');
