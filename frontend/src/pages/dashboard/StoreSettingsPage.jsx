@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import useStoreConfig from '../../context/storeConfig';
+import { uploadService } from '../../services/api';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
@@ -45,6 +46,32 @@ export default function StoreSettingsPage() {
   const { store, updateStore, isSaving } = useStoreConfig();
   const [form, setForm] = useState(null);
   const [activeTab, setActiveTab] = useState('general');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be smaller than 5MB.');
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const res = await uploadService.uploadImage(file);
+      set('logo', res.data.url);
+      toast.success('Logo uploaded!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   useEffect(() => {
     if (store) {
@@ -151,15 +178,34 @@ export default function StoreSettingsPage() {
             <label className="text-sm font-medium text-gray-700 block mb-1.5">Store Description</label>
             <textarea value={form.description} onChange={e => set('description', e.target.value)} rows={3} className="input-field resize-none" placeholder="Tell customers about your store..." />
           </div>
-          <Input label="Logo URL" value={form.logo} onChange={e => set('logo', e.target.value)} placeholder="https://..." hint="Direct image URL for your store logo" />
-          {form.logo && (
-            <div className="flex items-center gap-3">
-              <div className="w-16 h-16 rounded-xl border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
-                <img src={form.logo} alt="Logo" className="w-full h-full object-contain" onError={e => e.target.style.display = 'none'} />
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1.5">Store Logo</label>
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="w-16 h-16 rounded-xl border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center flex-shrink-0">
+                {form.logo ? (
+                  <img src={form.logo} alt="Logo" className="w-full h-full object-contain" onError={e => e.target.style.display = 'none'} />
+                ) : (
+                  <span className="text-2xl">🏪</span>
+                )}
               </div>
-              <p className="text-xs text-gray-500">Logo preview</p>
+              <label className="cursor-pointer">
+                <span className={`btn-outline inline-flex items-center gap-2 !py-2 !px-4 text-sm ${uploadingLogo ? 'opacity-60 pointer-events-none' : ''}`}>
+                  {uploadingLogo ? <Spinner size="sm" /> : null}
+                  {uploadingLogo ? 'Uploading...' : 'Choose from device'}
+                </span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
+              </label>
+              {form.logo && (
+                <button type="button" onClick={() => set('logo', '')} className="text-xs text-red-500 hover:text-red-600 font-medium">
+                  Remove
+                </button>
+              )}
             </div>
-          )}
+            <details className="mt-2">
+              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Or paste an image URL instead</summary>
+              <input type="url" value={form.logo} onChange={e => set('logo', e.target.value)} placeholder="https://..." className="input-field mt-2" />
+            </details>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Select label="Business Type" value={form.businessType} onChange={e => set('businessType', e.target.value)} options={BUSINESS_TYPES} />
             <Select label="Currency" value={form.currency} onChange={e => set('currency', e.target.value)} options={CURRENCIES} />
