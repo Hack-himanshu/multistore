@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { productService, categoryService } from '../../services/api';
+import { productService, categoryService, uploadService } from '../../services/api';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Select from '../../components/ui/Select';
@@ -28,6 +28,36 @@ function ProductModal({ product, categories, onClose, onSave }) {
   } : { ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be smaller than 5MB.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const res = await uploadService.uploadImage(file);
+      const url = res.data.url;
+      setForm(prev => ({
+        ...prev,
+        images: [{ url, alt: form.name, isPrimary: true }],
+      }));
+      toast.success('Image uploaded!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const validate = () => {
     const e = {};
@@ -131,24 +161,60 @@ function ProductModal({ product, categories, onClose, onSave }) {
               <Input label="Tags (comma-separated)" name="tags" value={form.tags} onChange={handleChange} placeholder="sneakers, casual, blue, men" hint="Helps customers find your product" />
             </div>
 
-            {/* Image URL */}
+            {/* Product Image — upload from device */}
             <div className="sm:col-span-2">
-              <label className="text-sm font-medium text-gray-700 block mb-1.5">Product Image URL</label>
-              <input
-                type="url"
-                placeholder="https://... (paste an image URL)"
-                className="input-field"
-                onChange={e => setForm(prev => ({
-                  ...prev,
-                  images: e.target.value ? [{ url: e.target.value, alt: form.name, isPrimary: true }] : []
-                }))}
-                defaultValue={form.images?.[0]?.url || ''}
-              />
-              {form.images?.[0]?.url && (
-                <div className="mt-2 w-20 h-20 rounded-xl overflow-hidden border border-gray-200">
-                  <img src={form.images[0].url} alt="Preview" className="w-full h-full object-cover" onError={e => e.target.style.display = 'none'} />
+              <label className="text-sm font-medium text-gray-700 block mb-1.5">Product Image</label>
+
+              <div className="flex items-center gap-4 flex-wrap">
+                {/* Preview */}
+                <div className="w-20 h-20 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center flex-shrink-0">
+                  {form.images?.[0]?.url ? (
+                    <img src={form.images[0].url} alt="Preview" className="w-full h-full object-cover" onError={e => e.target.style.display = 'none'} />
+                  ) : (
+                    <PhotoIcon className="w-8 h-8 text-gray-300" />
+                  )}
                 </div>
-              )}
+
+                {/* Upload button */}
+                <label className="cursor-pointer">
+                  <span className={`btn-outline inline-flex items-center gap-2 !py-2 !px-4 text-sm ${uploading ? 'opacity-60 pointer-events-none' : ''}`}>
+                    {uploading ? <Spinner size="sm" /> : <PhotoIcon className="w-4 h-4" />}
+                    {uploading ? 'Uploading...' : 'Choose from device'}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    disabled={uploading}
+                  />
+                </label>
+
+                {form.images?.[0]?.url && (
+                  <button
+                    type="button"
+                    onClick={() => setForm(prev => ({ ...prev, images: [] }))}
+                    className="text-xs text-red-500 hover:text-red-600 font-medium"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              {/* Fallback: paste a URL directly */}
+              <details className="mt-2">
+                <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Or paste an image URL instead</summary>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  className="input-field mt-2"
+                  onChange={e => setForm(prev => ({
+                    ...prev,
+                    images: e.target.value ? [{ url: e.target.value, alt: form.name, isPrimary: true }] : []
+                  }))}
+                  defaultValue={form.images?.[0]?.url || ''}
+                />
+              </details>
             </div>
 
             {/* Flags */}
