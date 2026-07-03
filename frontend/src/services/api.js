@@ -89,6 +89,17 @@ export const orderService = {
     createPublic: (storeSlug, data) => api.post(`/orders/public/${storeSlug}`, data),
 };
 
+// ─── Upload Service (Device Image Upload) ─────────────────────────────────────
+export const uploadService = {
+    uploadImage: (file) => {
+        const formData = new FormData();
+        formData.append('image', file);
+        return api.post('/upload/image', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+    },
+};
+
 // ─── AI Services (Phase 5) ───────────────────────────────────────────────────
 export const aiService = {
     chat: (messages, storeContext) => api.post('/ai/chat', { messages, storeContext }),
